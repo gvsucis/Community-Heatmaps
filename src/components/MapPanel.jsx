@@ -146,7 +146,7 @@ export default function MapPanel({ onSelectionChange }) {
               Source
             </button>
             <button onClick={handleClickTarget} disabled={activeMode === "target"}>
-              Target
+              Relation
             </button>
 
             <span style={{ opacity: 0.5, padding: "0 8px" }}>|</span>
@@ -155,11 +155,11 @@ export default function MapPanel({ onSelectionChange }) {
             <label>
               <input
                 type="radio"
-                name="layer"
-                checked={layer === "community"}
+                name="sourceLayer"
+                checked={sourceLayer === "community"}
                 onChange={() => {
-                  setLayer("community");
-                  setSelectedId(null);
+                  setSourceLayer("community");
+                  setSourceSelectedId(null);
                 }}
               />
               Community
@@ -167,11 +167,11 @@ export default function MapPanel({ onSelectionChange }) {
             <label>
               <input
                 type="radio"
-                name="layer"
-                checked={layer === "beat"}
+                name="sourceLayer"
+                checked={sourceLayer === "beat"}
                 onChange={() => {
-                  setLayer("beat");
-                  setSelectedId(null);
+                  setSourceLayer("beat");
+                  setSourceSelectedId(null);
                 }}
               />
               Beat
@@ -179,11 +179,11 @@ export default function MapPanel({ onSelectionChange }) {
             <label>
               <input
                 type="radio"
-                name="layer"
-                checked={layer === "district"}
+                name="sourceLayer"
+                checked={sourceLayer === "district"}
                 onChange={() => {
-                  setLayer("district");
-                  setSelectedId(null);
+                  setSourceLayer("district");
+                  setSourceSelectedId(null);
                 }}
               />
               District
@@ -214,13 +214,13 @@ export default function MapPanel({ onSelectionChange }) {
               }}
             >
               <GeoMap
-                geo={geo}
+                geo={BOUNDARY_GEO[sourceLayer]}
                 width={size.width/2}
                 height={size.height/2}
-                selectedId={selectedId}
+                selectedId={sourceSelectedId}
                 getId={getId}
                 getLabel={getLabel}
-                onSelectId={setSelectedId}
+                onSelectId={setSourceSelectedId}
                 onHover={setHover}
                 crimeCounts={crimeCounts}
               />
@@ -283,15 +283,13 @@ export default function MapPanel({ onSelectionChange }) {
             )}
           </div>
         </div>
+        <div style={{ width: "1px", padding: "0 5px" }} /> {/* Spacer between maps */}
         {/* Target Map*/}
         <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
           {/* Controls */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <strong>Entity:</strong>
-            <button onClick={handleClickSource} disabled={activeMode === "source"}>
-              Source
-            </button>
-            <button onClick={handleClickTarget} disabled={activeMode === "target"}>
+            <button disabled>
               Target
             </button>
 
@@ -301,11 +299,11 @@ export default function MapPanel({ onSelectionChange }) {
             <label>
               <input
                 type="radio"
-                name="layer"
-                checked={layer === "community"}
+                name="targetLayer"
+                checked={targetLayer === "community"}
                 onChange={() => {
-                  setLayer("community");
-                  setSelectedId(null);
+                  setTargetLayer("community");
+                  setTargetSelectedId(null);
                 }}
               />
               Community
@@ -313,11 +311,11 @@ export default function MapPanel({ onSelectionChange }) {
             <label>
               <input
                 type="radio"
-                name="layer"
-                checked={layer === "beat"}
+                name="targetLayer"
+                checked={targetLayer === "beat"}
                 onChange={() => {
-                  setLayer("beat");
-                  setSelectedId(null);
+                  setTargetLayer("beat");
+                  setTargetSelectedId(null);
                 }}
               />
               Beat
@@ -325,11 +323,11 @@ export default function MapPanel({ onSelectionChange }) {
             <label>
               <input
                 type="radio"
-                name="layer"
-                checked={layer === "district"}
+                name="targetLayer"
+                checked={targetLayer === "district"}
                 onChange={() => {
-                  setLayer("district");
-                  setSelectedId(null);
+                  setTargetLayer("district");
+                  setTargetSelectedId(null);
                 }}
               />
               District
@@ -348,7 +346,7 @@ export default function MapPanel({ onSelectionChange }) {
               gap: 10,
             }}
           >
-            {/* Map area 1*/}
+            {/* Map area 2*/}
             <div
               ref={mapWrapRef}
               style={{
@@ -360,48 +358,33 @@ export default function MapPanel({ onSelectionChange }) {
               }}
             >
               <GeoMap
-                geo={geo}
+                geo={BOUNDARY_GEO[targetLayer]}
                 width={size.width/2}
                 height={size.height/2}
-                selectedId={selectedId}
+                selectedId={targetSelectedId}
                 getId={getId}
                 getLabel={getLabel}
-                onSelectId={setSelectedId}
+                onSelectId={setTargetSelectedId}
                 onHover={setHover}
-                crimeCounts={crimeCounts}
+                crimeCounts={null}
               />
             </div>
             
 
             {/* Slider row */}
             <div style={{ flex: "0 0 auto" }}>
-              {activeMode === "source" ? (
-                <>
-                  <label htmlFor="pastDays">View {pastDays} days ago</label>
-                  <input
-                    id="pastDays"
-                    type="range"
-                    min="1"
-                    max="90"
-                    value={pastDays}
-                    onChange={(e) => setPastDays(Number(e.target.value))}
-                    style={{ width: "100%" }}
-                  />
-                </>
-              ) : (
-                <>
-                  <label htmlFor="futureDays">Predict {futureDays} days from now</label>
-                  <input
-                    id="futureDays"
-                    type="range"
-                    min="1"
-                    max="30"
-                    value={futureDays}
-                    onChange={(e) => setFutureDays(Number(e.target.value))}
-                    style={{ width: "100%" }}
-                  />
-                </>
-              )}
+              <>
+                <label htmlFor="futureDays">Predict {futureDays} days from now</label>
+                <input
+                  id="futureDays"
+                  type="range"
+                  min="1"
+                  max="30"
+                  value={futureDays}
+                  onChange={(e) => setFutureDays(Number(e.target.value))}
+                  style={{ width: "100%" }}
+                />
+              </>
             </div>
 
             {/* Tooltip */}
