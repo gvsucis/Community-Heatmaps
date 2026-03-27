@@ -62,6 +62,7 @@ export default function MapPanel({ onSelectionChange, onSummaryChange }) {
   const instanceSelectedId = mapFaces.instance.selectedId;
   const targetLayer = mapFaces.target.layer;
   const targetSelectedId = mapFaces.target.selectedId;
+  const relationTargetCommunityReady = targetLayer === "community" && !!targetSelectedId;
   const actualLayer = mapFaces.actual.layer;
   const actualSelectedId = mapFaces.actual.selectedId;
   const errorLayer = mapFaces.error.layer;
@@ -99,13 +100,33 @@ export default function MapPanel({ onSelectionChange, onSummaryChange }) {
   const secondaryGeo = BOUNDARY_GEO[secondaryLayer];
 
   //Hover daily series
-  const { hoverDaily, hoverDailyLoading, canShowHoverData } = useHoverDailySeries({hover, activeMode, secondaryMode, relationSelectedId, instanceSelectedId, selectedId, pastDays, futureStart, futureEnd, anchorDate});
+  const { hoverDaily, hoverDailyLoading, canShowHoverData } = useHoverDailySeries({
+    hover,
+    activeMode,
+    secondaryMode,
+    tensorSourceId: targetSelectedId,
+    pastDays,
+    futureStart,
+    futureEnd,
+    anchorDate,
+  });
 
-  //Model relation counts
-  const { counts: relationCounts, loading: relationLoading, error: relationError } = useModelRelationCounts(activeMode, layer, relationSelectedId);
+  // Model / instance choropleth uses Predicted (Target) community as tensor source; left map selection is display-only.
+  const { counts: relationCounts, loading: relationLoading, error: relationError } = useModelRelationCounts(
+    activeMode,
+    layer,
+    targetSelectedId,
+    relationTargetCommunityReady
+  );
 
-  //Instance relation counts
-  const { counts: instanceRelationCounts, loading: instanceRelationLoading, error: instanceRelationError } = useInstanceRelationCounts(activeMode, instanceSelectedId, pastDays, futureStart, futureEnd);
+  const { counts: instanceRelationCounts, loading: instanceRelationLoading, error: instanceRelationError } = useInstanceRelationCounts(
+    activeMode,
+    targetSelectedId,
+    pastDays,
+    futureStart,
+    futureEnd,
+    relationTargetCommunityReady
+  );
 
   // Relation tab: community-only on both sides; snap right map to Target
   useEffect(() => {
@@ -138,15 +159,19 @@ export default function MapPanel({ onSelectionChange, onSummaryChange }) {
     }
   }, [activeMode, layer, pastDays, anchorDate])
 
-  //get data for relational heatmaps
+  // get4d slice for relation/instance secondary viz — tensor source is target community, not left map click
   useEffect(() => {
-    if (activeMode !== "source" && selectedId) {
-      let cancelled = false;
-      const ac = new AbortController();
-      api.get4dData(activeMode === "instance" ? pastDays : 90, true, null, futureEnd, false, selectedId, futureStart, {
-        signal: ac.signal,
-      })
-      .then((data) => { 
+    if (activeMode === "source") return;
+    if (!relationTargetCommunityReady || !targetSelectedId) {
+      setRelationValues(null);
+      return;
+    }
+    let cancelled = false;
+    const ac = new AbortController();
+    api.get4dData(activeMode === "instance" ? pastDays : 90, true, null, futureEnd, false, targetSelectedId, futureStart, {
+      signal: ac.signal,
+    })
+      .then((data) => {
         if (cancelled) return;
         setRelationValues(data);
       })
@@ -155,12 +180,11 @@ export default function MapPanel({ onSelectionChange, onSummaryChange }) {
         if (cancelled) return;
         console.error("get4dData failed:", err);
       });
-      return () => {
-        cancelled = true;
-        ac.abort();
-      };
-    }
-  }, [activeMode, pastDays, futureStart, futureEnd, selectedId]);
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [activeMode, pastDays, futureStart, futureEnd, targetSelectedId, relationTargetCommunityReady]);
 
   // Instance-level map on source side: 4D array → per-community time-averaged over slider date range.
   const {data: instanceSourceResp, loading: instanceSourceLoading, error: instanceSourceError} = useApi(({ signal }) => {
@@ -188,7 +212,7 @@ export default function MapPanel({ onSelectionChange, onSummaryChange }) {
     const raw =
       activeMode === "relation"
         ? relationCounts
-        : activeMode === "instance" && instanceSelectedId && instanceRelationCounts
+        : activeMode === "instance" && relationTargetCommunityReady && instanceRelationCounts
           ? instanceRelationCounts
           : leftCrimeCounts;
     if (raw == null) return raw;
@@ -202,7 +226,7 @@ export default function MapPanel({ onSelectionChange, onSummaryChange }) {
       return out;
     }
     return raw;
-  }, [activeMode, relationCounts, instanceSelectedId, instanceRelationCounts, leftCrimeCounts, sourceCountMode, pastDays]);
+  }, [activeMode, relationCounts, relationTargetCommunityReady, instanceRelationCounts, leftCrimeCounts, sourceCountMode, pastDays]);
 
 
   //Get Data for Actual Heatmap
@@ -515,11 +539,34 @@ export default function MapPanel({ onSelectionChange, onSummaryChange }) {
                 <button onClick={() => setActiveMode("source")} disabled={activeMode === "source"}>
                   Past
                 </button>
-                <button onClick={() => setActiveMode("instance")} disabled={activeMode === "instance"} style={{fontSize:"0.65rem"}}>
-                  Instance <br/> Level
+                <button
+                  type="button"
+                  onClick={() => setActiveMode("instance")}
+                  disabled={activeMode === "instance" || !relationTargetCommunityReady}
+                  title={
+                    !relationTargetCommunityReady && activeMode !== "instance"
+                      ? "Select a community on the Predicted (Target) map first."
+                      : undefined
+                  }
+                  style={{ fontSize: "0.65rem" }}
+                >
+                  Instance <br /> Level
                 </button>
-                <button onClick={() => { setActiveMode("relation"); setSecondaryMode("target"); }} disabled={activeMode === "relation"} style={{fontSize:"0.65rem"}}>
-                  Model <br/> Level
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveMode("relation");
+                    setSecondaryMode("target");
+                  }}
+                  disabled={activeMode === "relation" || !relationTargetCommunityReady}
+                  title={
+                    !relationTargetCommunityReady && activeMode !== "relation"
+                      ? "Select a community on the Predicted (Target) map first."
+                      : undefined
+                  }
+                  style={{ fontSize: "0.65rem" }}
+                >
+                  Model <br /> Level
                 </button>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -611,6 +658,8 @@ export default function MapPanel({ onSelectionChange, onSummaryChange }) {
                     }
                     layer={layer}
                     selectedId={selectedId}
+                    showSelectedOutline
+                    relationHoverDetailActive={activeMode === "source" || relationTargetCommunityReady}
                     onSelectId={setSelectedId}
                     onHover={(h) => setHover(h ? { ...h, which: "left" } : null)}
                     recenterTrigger={recenterTrigger}
@@ -707,11 +756,27 @@ export default function MapPanel({ onSelectionChange, onSummaryChange }) {
           <div style={{ flex: "1", flexDirection: "column", padding: "1em", display: "flex", alignItems: "center" }}>
             {/* Controls */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start", width: "100%" }}>
-              {/* Model Level Relation Messages */}
-                <div
-                  style={{width: "100%", marginTop: 6, marginBottom: 6, minHeight: 18, fontSize: 13, fontWeight: 500, color: relationError ? "#ff6b6b" : "#ccc"}}
-                >
-                </div>
+              {/* Model / instance relation: hint / error */}
+              <div
+                style={{
+                  width: "100%",
+                  marginTop: 6,
+                  marginBottom: 6,
+                  minHeight: 18,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color:
+                    (activeMode === "relation" && relationError) || (activeMode === "instance" && instanceRelationError)
+                      ? "#ff6b6b"
+                      : "#ccc",
+                }}
+              >
+                {activeMode === "relation" && relationError
+                  ? relationError
+                  : activeMode === "instance" && instanceRelationError
+                    ? instanceRelationError
+                    : null}
+              </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <strong>Map:</strong>
                 <button onClick={() => setSecondaryMode("target")} disabled={secondaryMode === "target"}>

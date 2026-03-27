@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { RELATION_TARGET_LEN, targetsToCountsByCommunityId } from "../lib/relationTargets.js";
 
-/** Instance-level relation map counts when left tab is "instance" and a community is selected. */
-export function useInstanceRelationCounts(activeMode, instanceSelectedId, pastDays, futureStart, futureEnd) {
+/** Instance-level relation map counts when left tab is "instance" and a Predicted-map community is chosen; `sourceCommunityId` is that target (tensor source), not the left map click. */
+export function useInstanceRelationCounts(activeMode, sourceCommunityId, pastDays, futureStart, futureEnd, targetCommunityReady) {
   const [counts, setCounts] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -18,8 +18,15 @@ export function useInstanceRelationCounts(activeMode, instanceSelectedId, pastDa
       return;
     }
 
+    if (!targetCommunityReady) {
+      setCounts(null);
+      setLoading(false);
+      setError("Select a community on the Predicted (Target) map to use instance-level relation.");
+      return;
+    }
+
     //If the instance selected id is not set, set the counts to null, set the loading to false, and set the error to null
-    if (!instanceSelectedId) {
+    if (!sourceCommunityId) {
       setCounts(null);
       setLoading(false);
       setError(null);
@@ -27,7 +34,7 @@ export function useInstanceRelationCounts(activeMode, instanceSelectedId, pastDa
     }
 
     //Get the source index
-    const sourceIdx = Number(instanceSelectedId) - 1;
+    const sourceIdx = Number(sourceCommunityId) - 1;
     if (!Number.isFinite(sourceIdx) || sourceIdx < 0 || sourceIdx > 76) {
       setError("Invalid community id for instance relation.");
       setLoading(false);
@@ -75,7 +82,7 @@ export function useInstanceRelationCounts(activeMode, instanceSelectedId, pastDa
       //Abort the abort controller
       ac.abort();
     };
-  }, [activeMode, instanceSelectedId, pastDays, futureStart, futureEnd]);
+  }, [activeMode, sourceCommunityId, pastDays, futureStart, futureEnd, targetCommunityReady]);
 
   //Return the counts, loading state, and error state
   return { counts, loading, error };

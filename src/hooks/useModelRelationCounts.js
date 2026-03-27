@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { RELATION_TARGET_LEN, targetsToCountsByCommunityId } from "../lib/relationTargets.js";
 
-/** Model-level relation map counts when left tab is "relation" and a community is selected. */
-export function useModelRelationCounts(activeMode, layer, relationSelectedId) {
+/** Model-level relation map counts when left tab is "relation" and a Predicted-map community is chosen; `sourceCommunityId` is that target (tensor row), not the left map click. */
+export function useModelRelationCounts(activeMode, layer, sourceCommunityId, targetCommunityReady) {
   const [counts, setCounts] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -18,6 +18,13 @@ export function useModelRelationCounts(activeMode, layer, relationSelectedId) {
       return;
     }
 
+    if (!targetCommunityReady) {
+      setCounts(null);
+      setLoading(false);
+      setError("Select a community on the Predicted (Target) map to use model-level relation.");
+      return;
+    }
+
     //If the layer is not community, set the counts to null, set the loading to false, and set the error to "Model-level relation is only available for community layer right now."
     if (layer !== "community") {
       setCounts(null);
@@ -27,7 +34,7 @@ export function useModelRelationCounts(activeMode, layer, relationSelectedId) {
     }
 
     //If the relation selected id is not set, set the counts to null, set the loading to false, and set the error to null
-    if (!relationSelectedId) {
+    if (!sourceCommunityId) {
       setCounts(null);
       setLoading(false);
       setError(null);
@@ -35,7 +42,7 @@ export function useModelRelationCounts(activeMode, layer, relationSelectedId) {
     }
 
     //Get the source index
-    const sourceIdx = Number(relationSelectedId) - 1;
+    const sourceIdx = Number(sourceCommunityId) - 1;
     if (!Number.isFinite(sourceIdx) || sourceIdx < 0 || sourceIdx > 76) {
       setError("Invalid community id for relation mapping.");
       setCounts(null);
@@ -83,7 +90,7 @@ export function useModelRelationCounts(activeMode, layer, relationSelectedId) {
       //Abort the abort controller
       ac.abort();
     };
-  }, [activeMode, layer, relationSelectedId]);
+  }, [activeMode, layer, sourceCommunityId, targetCommunityReady]);
 
   //Return the counts, loading state, and error state
   return { counts, loading, error };

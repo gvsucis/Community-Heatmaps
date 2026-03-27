@@ -100,7 +100,11 @@ export default function MapBoxMap({
   onHover = null,
   recenterTrigger = null,
   isRelationMap = false,
-  loading = false
+  loading = false,
+  /** When false, the selected feature is not outlined (selection state is unchanged). */
+  showSelectedOutline = true,
+  /** When false, relation-map hover omits the per-cell relation count suffix (e.g. choropleth not driven by a target yet). */
+  relationHoverDetailActive = true,
 }) {
   const stops = isRelationMap ? RELATION_STOPS : CHOROPLETH_STOPS;
   //Hooks to ensure updates
@@ -113,6 +117,7 @@ export default function MapBoxMap({
   const onSelectIdRef = useRef(onSelectId);
   const onHoverRef = useRef(onHover);
   const selectedIdRef = useRef(selectedId);
+  const relationHoverDetailActiveRef = useRef(relationHoverDetailActive);
   const isRelationMapRef = useRef(isRelationMap);
   const [mapStyle, setMapStyle] = useState('streets');
   const lastHoverStateRef = useRef(null); 
@@ -126,6 +131,9 @@ export default function MapBoxMap({
   useEffect(() => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
+  useEffect(() => {
+    relationHoverDetailActiveRef.current = relationHoverDetailActive;
+  }, [relationHoverDetailActive]);
 
   useEffect(() => {
     geoRef.current = geo;
@@ -276,7 +284,8 @@ export default function MapBoxMap({
       const features = map.queryRenderedFeatures(e.point, {
         layers: [BOUNDARIES_LAYER_ID],
       });
-      map.getCanvas().style.cursor = features.length ? "pointer" : "";
+      map.getCanvas().style.cursor =
+        features.length && onSelectIdRef.current ? "pointer" : "";
       if (onHoverRef.current) {
         if (features.length > 0) {
           const feature = features[0];
@@ -290,7 +299,11 @@ export default function MapBoxMap({
           if (crimeCountsRef.current != null && !isRelationMapRef.current) {
             text += ` — ${count} crime${count !== 1 ? "s" : ""}`;
           }
-          if (isRelationMapRef.current && crimeCountsRef.current && selectedIdRef.current) {
+          if (
+            isRelationMapRef.current &&
+            crimeCountsRef.current &&
+            relationHoverDetailActiveRef.current
+          ) {
             text += ` - ${count} relation`;
           }
           lastHoverStateRef.current = { x: e.originalEvent.clientX, y: e.originalEvent.clientY, feature };
@@ -399,12 +412,9 @@ export default function MapBoxMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.getLayer(BOUNDARIES_SELECTED_LAYER_ID)) return;
-    map.setFilter(BOUNDARIES_SELECTED_LAYER_ID, [
-      "==",
-      ["get", "boundary_id"],
-      selectedId ?? "",
-    ]);
-  }, [selectedId]);
+    const outlineId = showSelectedOutline ? (selectedId ?? "") : "";
+    map.setFilter(BOUNDARIES_SELECTED_LAYER_ID, ["==", ["get", "boundary_id"], outlineId]);
+  }, [selectedId, showSelectedOutline]);
 
   // Recenter to Chicago when parent triggers (e.g. "Recenter" button)
   useEffect(() => {
@@ -427,7 +437,11 @@ export default function MapBoxMap({
     if (crimeCountsRef.current != null && !isRelationMapRef.current) {
       text += ` — ${count} crime${count !== 1 ? "s" : ""}`;
     }
-    if (isRelationMapRef.current && crimeCountsRef.current && selectedIdRef.current) {
+    if (
+      isRelationMapRef.current &&
+      crimeCountsRef.current &&
+      relationHoverDetailActiveRef.current
+    ) {
       text += ` - ${count} relation`;
     }
     onHoverRef.current({ x, y, text, id, layer: layerRef.current });
