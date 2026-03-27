@@ -76,6 +76,7 @@ function SelectionBlock({ heading, payload, showApi = true, isLeft }) {
                 </div>
               )}
           </div>
+          
 
           {showApi && selection.mode !== "target" ? (
             <>
